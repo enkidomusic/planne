@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>planne</title>
+<style>
+  :root {
+    --bg:#fff; --side:#f5f5f7; --fg:#1d1d1f; --mute:#86868b; --line:#e5e5ea; --out:#f9f9fb;
+    --red:#ff3b30; --chip:rgba(255,59,48,.14); --chip-fg:#c0231a; --hover:rgba(0,0,0,.04); --warn:#b45309;
+    --blue:#007aff; --chip-b:rgba(0,122,255,.14); --chip-b-fg:#0a5bd3;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1e1e1e; --side:#2a2a2c; --fg:#f5f5f7; --mute:#98989d; --line:#3a3a3c; --out:#242426; --warn:#fbbf24;
+      --blue:#0a84ff; --chip-b:rgba(10,132,255,.24); --chip-b-fg:#7ab8ff;
+      --chip:rgba(255,69,58,.22); --chip-fg:#ff8a80; --hover:rgba(255,255,255,.06); }
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { display:flex; background:var(--bg); color:var(--fg);
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif; }
+  button,input,select { font:inherit; color:inherit; }
+  [hidden] { display:none !important; }
+  button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible { outline:2px solid var(--blue); outline-offset:3px; }
+  button:disabled { opacity:.4; cursor:default !important; }
+
+  aside { width:13rem; background:var(--side); border-right:1px solid var(--line); padding:1rem .75rem; display:flex; flex-direction:column; gap:.5rem; }
+  aside header { display:flex; justify-content:space-between; align-items:center; color:var(--mute); font-weight:600; }
+  #undated { flex:1; display:flex; flex-direction:column; gap:3px; border-radius:8px; padding:2px; overflow:auto; }
+  .drop { background:var(--hover); outline:2px dashed var(--red); outline-offset:-2px; }
+
+  body > section { flex:1; display:flex; flex-direction:column; min-width:0; min-height:0; }
+  .bar { display:flex; align-items:center; gap:1rem; padding:.75rem 1rem; }
+  .bar h1 { font-size:1.6rem; font-weight:700; margin:0; text-transform:capitalize; }
+  .bar h1 span { font-weight:400; color:var(--mute); }
+  .nav { display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+  .nav button { background:none; border:0; padding:3px 12px; cursor:pointer; }
+  .nav button+button { border-left:1px solid var(--line); }
+  .nav button:hover { background:var(--hover); }
+  .sw { display:flex; align-items:center; gap:6px; color:var(--mute); cursor:pointer; user-select:none; }
+  .sw input { position:absolute; opacity:0; pointer-events:none; }
+  .sw i { position:relative; width:28px; height:16px; border-radius:8px; background:var(--line); transition:background .15s; }
+  .sw i::after { content:""; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.3); transition:transform .15s; }
+  .sw input:checked + i { background:var(--red); }
+  .sw input:checked + i::after { transform:translateX(12px); }
+  .sw input:focus-visible + i { outline:2px solid var(--red); outline-offset:2px; }
+  .plus { background:none; border:0; font-size:1.3rem; line-height:1; color:var(--red); cursor:pointer; }
+
+  .wd,.grid { display:grid; grid-template-columns:repeat(7,1fr); }
+  .wd div { text-align:right; padding:2px 8px 4px; color:var(--mute); border-bottom:1px solid var(--line); }
+  .grid { flex:1; grid-auto-rows:minmax(0,1fr); }
+  .day { border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:3px 4px; min-height:0;
+    overflow:hidden; display:flex; flex-direction:column; gap:2px; cursor:default; }
+  .day:nth-child(7n) { border-right:0; }
+  .day.out { background:var(--out); color:var(--mute); }
+  .hd { display:flex; align-items:center; gap:4px; min-width:0; }
+  .hd .n { margin-left:auto; flex:none; }
+  .ld { font-size:11px; color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .ld.warn { color:var(--warn); }
+  .ld.over { background:var(--red); color:#fff; font-weight:600; border-radius:8px; padding:0 6px; }
+  .gear { background:none; border:0; color:var(--mute); cursor:pointer; font-size:1.15rem; line-height:1; padding:0 2px; }
+  .gear:hover { color:var(--fg); }
+  .day.out .ld { opacity:.7; }
+  .day .n { min-width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; padding:0 4px; }
+  .day.today .n { background:var(--red); color:#fff; font-weight:600; }
+  .day.first .n { font-weight:700; }
+
+  .chip { background:var(--chip); color:var(--chip-fg); border-left:3px solid var(--red); border-radius:4px;
+    padding:1px 6px; display:flex; align-items:center; gap:5px; cursor:pointer; flex:none; }
+  .chip:active { opacity:.6; }
+  .chip .tx { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chk { flex:none; width:11px; height:11px; border-radius:50%; border:1.5px solid var(--red); }
+  .chk:hover { background:var(--chip); }
+  .chip.rep { background:var(--chip-b); color:var(--chip-b-fg); border-left-color:var(--blue); }
+  .chip.rep .chk { border-color:var(--blue); }
+  .chip.rep .chk:hover { background:var(--chip-b); }
+  .chip.rep.done .chk { background:var(--blue); }
+  .chip.done { opacity:.55; }
+  .chip.done .tx { text-decoration:line-through; }
+  .chip.done .chk { background:var(--red); }
+
+  dialog { border:1px solid var(--line); border-radius:12px; padding:1rem; width:18rem; background:var(--bg); color:var(--fg);
+    box-shadow:0 12px 40px rgba(0,0,0,.25); }
+  dialog::backdrop { background:rgba(0,0,0,.15); }
+  dialog input { width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--side); margin-bottom:.5rem; }
+  dialog input:focus { outline:2px solid var(--red); outline-offset:-1px; }
+  .dur { display:flex; align-items:center; gap:.4rem; margin-bottom:.5rem; color:var(--mute); }
+  .dur input { width:4rem; margin:0; }
+  .dur .lbl { margin-right:auto; }
+  .dur input:disabled { opacity:.45; }
+  .wds { display:flex; gap:3px; margin-bottom:.5rem; }
+  .wds button { flex:1; padding:3px 0; border-radius:6px; border:1px solid var(--line); background:var(--side); color:var(--mute); cursor:pointer; font-size:12px; }
+  .wds button.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .wds button:disabled { opacity:.45; cursor:default; }
+  .hint { color:var(--mute); font-size:12px; margin:-.25rem 0 .5rem; }
+  dialog .row { display:flex; gap:.5rem; justify-content:flex-end; margin-top:.25rem; }
+  dialog .row button { padding:4px 12px; border-radius:6px; border:1px solid var(--line); background:var(--side); cursor:pointer; }
+  dialog .row .ok { background:var(--red); border-color:var(--red); color:#fff; }
+  dialog .row .del { margin-right:auto; color:var(--red); }
+  #err { position:fixed; bottom:.75rem; left:50%; transform:translateX(-50%); background:var(--red); color:#fff; padding:4px 12px; border-radius:8px; display:none; }
+
+  .bar { flex-wrap:wrap; gap:.75rem; border-bottom:1px solid var(--line); }
+  .month-heading { flex:1; min-width:160px; }
+  .brand { color:var(--mute); font-size:10px; font-weight:700; letter-spacing:.15em; margin-bottom:2px; }
+  .calendar-tools,.month-nav { display:flex; gap:.6rem; align-items:center; }
+  #monthPicker { border:1px solid var(--line); border-radius:7px; background:var(--bg); padding:4px 6px; max-width:155px; }
+  #calendarView { flex:1; min-height:0; display:flex; flex-direction:column; }
+  aside { width:19rem; flex:none; min-height:0; overflow:auto; gap:12px; }
+  aside > header { color:var(--fg); font-size:14px; }
+  .sidebar-hint { color:var(--mute); font-size:11px; line-height:1.5; margin:0; }
+  #undated { flex:none; overflow:visible; gap:12px; padding:0; }
+  .matrix-lane { flex:none; border:1px solid var(--line); border-top:3px solid var(--lane-color); border-radius:9px; background:var(--bg); min-height:110px; padding:10px; }
+  .matrix-lane header { display:flex; align-items:center; gap:6px; color:var(--fg); font-size:12px; }
+  .matrix-lane header strong { flex:1; }
+  .matrix-lane .lane-subtitle { color:var(--mute); font-size:11px; margin:3px 0 9px; }
+  .lane-tasks { display:flex; flex-direction:column; gap:5px; min-height:38px; }
+  .lane-empty { margin:9px 0; color:var(--mute); font-size:11px; text-align:center; pointer-events:none; }
+  .lane-count { color:var(--mute); font-size:11px; }
+  .matrix-lane.drop { outline-color:var(--lane-color); background:var(--hover); }
+  .matrix-lane.pending { opacity:.6; }
+  .matrix-lane .chip { padding:5px 6px; }
+  .matrix-lane .chip .tx { white-space:normal; overflow-wrap:anywhere; flex:1; }
+  .matrix-badge { flex:none; font-size:9px; font-weight:700; border:1px solid currentColor; border-radius:3px; padding:0 3px; }
+  .category-field { margin-bottom:10px; }
+  .category-field label { display:block; color:var(--mute); font-size:12px; margin-bottom:5px; }
+  .category-field small { display:block; color:var(--mute); font-size:11px; line-height:1.5; margin:3px 0; }
+  .category-field select { width:100%; padding:7px; border:1px solid var(--line); background:var(--side); border-radius:6px; }
+  @media(max-width:640px) {
+    body { flex-direction:column; }
+    aside { width:auto; height:40vh; min-height:200px; max-height:45vh; border-right:0; border-bottom:1px solid var(--line); }
+    .bar { padding:9px 12px; gap:9px; } .bar h1 { font-size:1.3rem; }
+    .month-nav { width:100%; justify-content:space-between; }
+    .wd div { padding-right:4px; } .day { padding:3px 2px; } .day .chip { font-size:11px; padding:1px 3px; gap:3px; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <header>Без даты · Матрица <button class="plus" id="addUndated" title="Новая задача">+</button></header>
+  <p class="sidebar-hint">Перетащите задачу в нужный квадрант. На дату в календаре — чтобы запланировать. Серия переносится целиком.</p>
+  <div id="undated"></div>
+</aside>
+
+<section>
+  <div class="bar">
+    <div class="month-heading"><div class="brand">PLANNE</div><h1 id="title"></h1></div>
+    <div class="calendar-tools">
+      <button class="gear" id="gear" title="Настройки дневного лимита" aria-label="Настройки дневного лимита">⚙</button>
+      <label class="sw" id="loadSwitch" title="Показывать ожидаемую нагрузку по дням"><input type="checkbox" id="load"><i></i>Нагрузка</label>
+    </div>
+    <div class="month-nav">
+      <input id="monthPicker" type="month" min="0001-01" max="9999-12" aria-label="Выбрать месяц">
+      <div class="nav"><button id="prev" aria-label="Предыдущий месяц">‹</button><button id="today">Сегодня</button><button id="next" aria-label="Следующий месяц">›</button></div>
+    </div>
+  </div>
+  <div id="calendarView" aria-label="Календарь">
+    <div class="wd"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+</section>
+
+<dialog id="dlg">
+  <form id="form">
+    <input id="desc" placeholder="Новая задача" aria-label="Название задачи" autocomplete="off" required>
+    <div class="category-field">
+      <label for="taskCategory">Категория</label>
+      <input id="taskCategory" list="categoryOptions" maxlength="60" placeholder="Например, Работа или Спорт" autocomplete="off">
+      <datalist id="categoryOptions"></datalist>
+      <small>Сохраняется в этом браузере. Для переноса между устройствами добавьте #тег в название.</small>
+    </div>
+    <div class="category-field"><label for="taskMatrix">Матрица Эйзенхауэра</label>
+      <select id="taskMatrix" aria-describedby="taskMatrixHint"><option value="">Не указан</option><option value="1">1 · Важно и срочно — сделать</option><option value="2">2 · Важно, не срочно — запланировать</option><option value="3">3 · Не важно, срочно — делегировать</option><option value="4">4 · Не важно и не срочно — пересмотреть</option></select>
+      <small id="taskMatrixHint">Важно — значимая польза или защита от потерь. Срочно — откладывать уже нельзя.</small>
+      <small>Для серии применяется ко всем повторам. Сохраняется на сервере.</small>
+    </div>
+    <input id="date" type="date" aria-label="Запланированная дата">
+    <div class="dur">
+      <span class="lbl">Ожидаемое время</span>
+      <input id="dh" type="number" min="0" step="1" placeholder="0"> ч
+      <input id="dm" type="number" min="0" step="1" placeholder="0"> мин
+    </div>
+    <div class="dur"><span class="lbl">Повторов всего</span>
+      <input id="rc" type="number" min="2" step="1" placeholder="—"> раз
+    </div>
+    <div class="dur"><span class="lbl">Каждые</span>
+      <input id="ri" type="number" min="1" step="1" placeholder="1"> дн.
+    </div>
+    <div class="dur"><span class="lbl">Пропускать дни недели</span></div>
+    <div class="wds" id="wds"></div>
+    <div class="hint" id="rhint">Считая первый день. Нужна дата.</div>
+    <div class="row">
+      <button type="button" class="del" id="del">Удалить</button>
+      <button type="button" id="cancel">Отмена</button>
+      <button class="ok">Готово</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="set">
+  <form id="setForm">
+    <div class="dur"><span class="lbl">Дневной лимит</span>
+      <input id="lh" type="number" min="0" step="1" placeholder="0"> ч
+      <input id="lm" type="number" min="0" step="1" placeholder="0"> мин
+    </div>
+    <div style="color:var(--mute);margin-bottom:.5rem">Если запланировано больше, день подсветится в режиме «Нагрузка».</div>
+    <div class="row">
+      <button type="button" class="del" id="setReset">Сбросить</button>
+      <button type="button" id="setCancel">Отмена</button>
+      <button class="ok">Готово</button>
+    </div>
+  </form>
+</dialog>
+<div id="err" role="alert"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let tasks = [], cur = new Date(); cur.setDate(1);
+let editing = null;
+const sidebarPending = new Set();
+let isLoading = true, loadError = '', loadedAt = null, loadSequence = 0;
+
+let taskCategories = Object.create(null);
+try {
+  const stored = JSON.parse(localStorage.getItem('planne.categories') || '{}');
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    for (const [id, name] of Object.entries(stored)) if (typeof name === 'string') taskCategories[id] = name.slice(0, 60);
+  }
+} catch {}
+
+const dateAt = (y, m, d = 1) => { const result = new Date(0); result.setHours(12, 0, 0, 0); result.setFullYear(y, m, d); return result; };
+const key = d => `${String(d.getFullYear()).padStart(4,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const toApi = d => d ? d + 'T00:00:00Z' : null;
+const fromApi = d => d ? d.slice(0, 10) : '';
+
+const toast = msg => {
+  const el = $('#err'); el.textContent = msg; el.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.style.display = 'none', 3000);
+};
+async function api(method, url, body) {
+  try {
+    const r = await fetch(url, { method, headers: body ? {'Content-Type':'application/json'} : {}, body: body && JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.text()).trim() || r.status);
+    return method === 'GET' ? r.json() : null;
+  } catch (e) {
+    toast('Ошибка: ' + e.message);
+    throw e;
+  }
+}
+async function load() {
+  const sequence = ++loadSequence;
+  isLoading = true; loadError = ''; render();
+  try {
+    const result = (await api('GET', '/tasks')) || [];
+    if (!Array.isArray(result)) throw new Error('Сервер вернул некорректный список задач');
+    if (sequence !== loadSequence) return;
+    tasks = result; tasks.sort((a, b) => a.id - b.id); loadedAt = new Date();
+  } catch (e) {
+    if (sequence === loadSequence) loadError = e.message;
+    throw e;
+  } finally {
+    if (sequence === loadSequence) { isLoading = false; render(); }
+  }
+}
+// PUT заменяет задачу целиком, поэтому is_done, оценку времени, повторение, исключённые дни и даты выполненных вхождений отправляем всегда
+const save = (t, date, isDone = t.is_done, doneKeys = doneKeysOf(t), onSaved = null) =>
+  api('PUT', `/tasks/${t.id}`, {
+    description: t.description, date: toApi(date), is_done: !!isDone,
+    expected_duration_minutes: t.expected_duration_minutes ?? null,
+    repeat_count: t.repeat_count ?? null, repeat_interval: t.repeat_interval ?? null,
+    excluded_weekdays: t.excluded_weekdays ?? [],
+    done_dates: [...doneKeys].map(toApi),
+    eisenhower_matrix_category: t.eisenhower_matrix_category ?? null,
+  }).then(() => { if (onSaved) onSaved(); return load(); });
+
+// переключатель «Нагрузка»; запоминаем выбор в браузере
+let showLoad = false;
+try { showLoad = localStorage.getItem('planne.load') === '1'; } catch {}
+$('#load').checked = showLoad;
+$('#load').onchange = e => {
+  showLoad = e.target.checked;
+  try { localStorage.setItem('planne.load', showLoad ? '1' : '0'); } catch {}
+  render();
+};
+
+// дневной лимит в минутах (null = не задан); хранится только в браузере
+let limit = null;
+try { const v = parseInt(localStorage.getItem('planne.limit'), 10); limit = v > 0 ? v : null; } catch {}
+const parseDur = (h, m) => h === '' && m === '' ? null : Math.max(0, Math.round(Number(h || 0) * 60 + Number(m || 0)));
+
+const fmtMin = m => {
+  const h = Math.floor(m / 60), mm = m % 60;
+  return h && mm ? `${h} ч ${mm} мин` : h ? `${h} ч` : `${mm} мин`;
+};
+// сумма оценок дня; если у какой-то задачи оценки нет — вместо суммы предупреждение
+function loadLabel(ts) {
+  const el = document.createElement('span');
+  if (ts.some(t => t.expected_duration_minutes == null)) {
+    el.className = 'ld warn';
+    el.textContent = '⚠ есть без оценки';
+    el.title = 'Не у всех задач этого дня заполнено ожидаемое время, поэтому загрузку посчитать нельзя';
+  } else {
+    const sum = ts.reduce((s, t) => s + t.expected_duration_minutes, 0);
+    if (limit && sum > limit) {
+      el.className = 'ld over';
+      el.textContent = fmtMin(sum);
+      el.title = `Запланировано больше лимита (${fmtMin(limit)}) на ${fmtMin(sum - limit)}`;
+    } else {
+      el.className = 'ld';
+      el.textContent = fmtMin(sum);
+      el.title = 'Ожидаемая загрузка дня';
+    }
+  }
+  return el;
+}
+
+const addDays = (k, n) => { const [y, m, d] = k.split('-').map(Number); return key(dateAt(y, m - 1, d + n)); };
+const diffDays = (a, b) => {
+  const [y1, m1, d1] = a.split('-').map(Number), [y2, m2, d2] = b.split('-').map(Number);
+  const x = new Date(0), y = new Date(0); x.setUTCFullYear(y1, m1 - 1, d1); y.setUTCFullYear(y2, m2 - 1, d2);
+  return Math.round((y - x) / 864e5);
+};
+const weekdayOf = k => { const [y, m, d] = k.split('-').map(Number); return dateAt(y, m - 1, d).getDay(); };  // 0 = вс
+
+// даты вхождений задачи: сама дата (показывается всегда) + повторы через repeat_interval дней,
+// пропуская excluded_weekdays; повторов всего repeat_count (считая первый). Без даты вхождений нет.
+function occurrences(t) {
+  const base = fromApi(t.date);
+  if (!base) return [];
+  const n = t.repeat_count >= 2 && t.repeat_interval >= 1 ? Math.min(t.repeat_count, 1000) : 1;
+  const out = [base];
+  const skip = new Set(t.excluded_weekdays || []);
+  for (let k = 1; out.length < n && k <= 5000; k++) {   // предел: интервал 7 + исключённый день не должен зациклить
+    const d = addDays(base, k * t.repeat_interval);
+    if (!skip.has(weekdayOf(d))) out.push(d);
+  }
+  return out;
+}
+// выполненные вхождения серии хранятся датами (done_dates); у обычной задачи — is_done
+const doneKeysOf = t => new Set((t.done_dates || []).map(fromApi));
+
+function chip(t, idx = 0) {
+  const c = document.createElement('div');
+  const occ = occurrences(t), series = occ.length > 1;
+  const done = series ? doneKeysOf(t).has(occ[idx]) : !!t.is_done;
+  c.className = 'chip' + (series ? ' rep' : '') + (done ? ' done' : '');
+  c.title = series ? `${t.description} (повтор ${idx + 1} из ${occ.length}, каждые ${t.repeat_interval} дн.)` : t.description;
+  c.draggable = true;
+  const chk = document.createElement('span');
+  chk.className = 'chk'; chk.title = done ? 'Вернуть в работу' : 'Выполнено';
+  chk.onclick = e => {
+    e.stopPropagation();
+    if(sidebarPending.has(String(t.id)))return;
+    if (series) {
+      const keys = doneKeysOf(t);
+      done ? keys.delete(occ[idx]) : keys.add(occ[idx]);
+      save(t, fromApi(t.date), occ.every(k => keys.has(k)), keys).catch(() => {});   // is_done серии = выполнены все вхождения
+    } else {
+      save(t, fromApi(t.date), !t.is_done).catch(() => {});
+    }
+  };
+  const tx = document.createElement('span');
+  tx.className = 'tx'; tx.textContent = t.description;
+  c.append(chk, tx);
+  if (matrixKey(t) !== 'none') { const badge = node('span', 'matrix-badge', `Q${matrixKey(t)}`); badge.title = matrixDefinition(t).name; c.append(badge); }
+  c.ondragstart = e => { if(sidebarPending.has(String(t.id))){e.preventDefault();return;} e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', `${t.id}:${idx}`); };
+  c.ondragend = () => document.querySelectorAll('.drop').forEach(el=>el.classList.remove('drop'));
+  c.onclick = e => { e.stopPropagation(); openDlg(t); };
+  return c;
+}
+function dropTarget(el, date) {
+  el.ondragover = e => { e.preventDefault(); el.classList.add('drop'); };
+  el.ondragleave = () => el.classList.remove('drop');
+  el.ondrop = e => {
+    e.preventDefault(); el.classList.remove('drop');
+    const [id, idx = 0] = e.dataTransfer.getData('text/plain').split(':');
+    const t = tasks.find(t => t.id == id);
+    if (!t || sidebarPending.has(String(t.id))) return;
+    const old = fromApi(t.date);
+    if (!date) { if (old) save(t, '').catch(() => {}); return; }
+    if (!old) { save(t, date).catch(() => {}); return; }
+    // перетаскиваем вхождение: серия сдвигается так, чтобы оно легло на выбранный день,
+    // и даты выполненных вхождений сдвигаются вместе с ней
+    const delta = diffDays(occurrences(t)[Number(idx)] ?? old, date);
+    if (!delta) return;
+    const keys = new Set([...doneKeysOf(t)].map(k => addDays(k, delta)));
+    const moved = occurrences({ ...t, date: toApi(addDays(old, delta)) });
+    save(t, addDays(old, delta), moved.length > 1 ? moved.every(k => keys.has(k)) : t.is_done, keys).catch(() => {});
+  };
+}
+
+function render() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  $('#title').innerHTML = `${cur.toLocaleDateString('ru', { month: 'long' })} <span>${y}</span>`;
+  $('#monthPicker').value = key(cur).slice(0, 7);
+  $('#prev').disabled = y === 1 && m === 0;
+  $('#next').disabled = y === 9999 && m === 11;
+
+
+  const offset = (cur.getDay() + 6) % 7;                       // неделя с понедельника
+  const weeks = Math.ceil((offset + dateAt(y, m + 1, 0).getDate()) / 7);
+  const todayKey = key(new Date());
+  const byDate = {};
+  for (const t of tasks) {
+    const occ = occurrences(t);
+    if (!occ.length) { (byDate[''] ||= []).push({ t, idx: 0 }); continue; }
+    occ.forEach((k, i) => (byDate[k] ||= []).push({ t, idx: i }));
+  }
+
+  const cells = [];
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = dateAt(y, m, 1 - offset + i), k = key(d);
+    const el = document.createElement('div');
+    el.dataset.date = k;
+    el.className = 'day' + (d.getMonth() !== m ? ' out' : '') + (k === todayKey ? ' today' : '') + (d.getDate() === 1 ? ' first' : '');
+    const n = document.createElement('div');
+    n.className = 'n';
+    n.textContent = d.getDate() === 1 ? d.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) : d.getDate();
+    const dayTasks = byDate[k] || [];
+    const hd = document.createElement('div');
+    hd.className = 'hd';
+    if (showLoad && dayTasks.length) hd.append(loadLabel(dayTasks.map(x => x.t)));
+    hd.append(n);
+    el.append(hd, ...dayTasks.map(x => chip(x.t, x.idx)));
+    el.onclick = () => openDlg(null, k);
+    dropTarget(el, k);
+    cells.push(el);
+  }
+  $('#grid').replaceChildren(...cells);
+
+  renderSidebar((byDate[''] || []).map(x=>x.t));
+}
+
+const cleanCategory = value => String(value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+const normalize = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru');
+function categoryOf(task) {
+  const local = cleanCategory(taskCategories[String(task.id)]);
+  const tag = String(task.description || '').match(/(?:^|\s)#([\p{L}\p{N}_-]+)/u)?.[1];
+  const name = local || tag || 'Без категории';
+  return { id: normalize(name), name: name.charAt(0).toLocaleUpperCase('ru') + name.slice(1) };
+}
+function storeCategory(id, value) {
+  const name = cleanCategory(value);
+  if (name) taskCategories[String(id)] = name; else delete taskCategories[String(id)];
+  try { localStorage.setItem('planne.categories', JSON.stringify(taskCategories)); }
+  catch { toast('Категория действует до перезагрузки: браузер не разрешил её сохранить. Можно использовать #тег в названии.'); }
+}
+const node = (tag, className = '', text = '') => { const el=document.createElement(tag); el.className=className; el.textContent=text; return el; };
+const MATRIX = [
+  {id:'1',name:'Важно и срочно',action:'Сделать',color:'#d85b52'},
+  {id:'2',name:'Важно, не срочно',action:'Запланировать',color:'#348b70'},
+  {id:'3',name:'Не важно, срочно',action:'Рассмотреть делегирование',color:'#c77728'},
+  {id:'4',name:'Не важно и не срочно',action:'Пересмотреть',color:'#8b6bd6'},
+  {id:'none',name:'Без квадранта',action:'Выберите приоритет — перетащите в один из четырёх квадрантов',color:'var(--mute)'},
+];
+function matrixKey(task) { return [1,2,3,4].includes(task.eisenhower_matrix_category) ? String(task.eisenhower_matrix_category) : 'none'; }
+function matrixDefinition(task) { return MATRIX.find(item=>item.id===matrixKey(task)); }
+function refreshCategoryOptions() {
+  const names=new Set(['Работа','Учёба','Спорт','Личное','Отдых']);
+  tasks.forEach(task=>names.add(categoryOf(task).name));
+  $('#categoryOptions').replaceChildren(...[...names].filter(name=>name!=='Без категории').sort((a,b)=>a.localeCompare(b,'ru')).map(name=>new Option(name,name)));
+}
+function changeMonth(date) {
+  if (!Number.isFinite(date.getTime()) || date.getFullYear()<1 || date.getFullYear()>9999) return;
+  cur=dateAt(date.getFullYear(),date.getMonth()); render();
+}
+function sidebarDropTarget(lane, category) {
+  lane.ondragover = event => { event.preventDefault(); if(event.dataTransfer)event.dataTransfer.dropEffect='move'; lane.classList.add('drop'); };
+  lane.ondragleave = event => { if(!event.relatedTarget || !lane.contains(event.relatedTarget))lane.classList.remove('drop'); };
+  lane.ondrop = async event => {
+    event.preventDefault(); event.stopPropagation(); lane.classList.remove('drop');
+    const raw=event.dataTransfer?.getData('text/plain') || '';
+    if(!/^\d+(?::\d+)?$/.test(raw))return;
+    const task=tasks.find(task=>String(task.id)===raw.split(':')[0]);
+    if(!task || sidebarPending.has(String(task.id)))return;
+    const value=category==='none' ? null : Number(category);
+    if(!fromApi(task.date) && (task.eisenhower_matrix_category ?? null)===value)return;
+    sidebarPending.add(String(task.id)); lane.classList.add('pending');
+    try { await save({...task,eisenhower_matrix_category:value},''); }
+    catch {} finally { sidebarPending.delete(String(task.id)); lane.classList.remove('pending'); render(); }
+  };
+}
+function renderSidebar(undated) {
+  const lanes=[];
+  for(const definition of MATRIX) {
+    const selected=undated.filter(task=>matrixKey(task)===definition.id);
+    if(definition.id==='none' && !selected.length)continue;
+    const lane=node('div','matrix-lane');lane.dataset.category=definition.id;lane.style.setProperty('--lane-color',definition.color);
+    const heading=node('header'),title=node('strong','',`${definition.id==='none'?'':`Q${definition.id} · `}${definition.name}`);
+    heading.append(title,node('span','lane-count',String(selected.length)));
+    if(definition.id!=='none') {const add=node('button','plus','+'); add.title=`Новая задача: ${definition.name}`;add.setAttribute('aria-label',add.title);add.onclick=()=>openDlg(null,'',Number(definition.id));heading.append(add);}
+    lane.append(heading,node('div','lane-subtitle',definition.action));
+    const list=node('div','lane-tasks');
+    if(selected.length)list.append(...selected.map(task=>chip(task)));else list.append(node('p','lane-empty','Перетащите задачу сюда'));
+    lane.append(list);sidebarDropTarget(lane,definition.id);lanes.push(lane);
+  }
+  $('#undated').replaceChildren(...lanes);
+}
+
+const dlg = $('#dlg');
+let taskBusy = false;
+function setTaskBusy(busy) {
+  taskBusy = busy; $('#form').setAttribute('aria-busy', String(busy));
+  $('#form').querySelectorAll('button,input,select').forEach(element => element.disabled = busy);
+  if (!busy) syncRep();
+}
+dlg.addEventListener('cancel', event => { if (taskBusy) event.preventDefault(); });
+// без даты повторять нечего: поля блокируются
+const WDAYS = [[1, 'Пн'], [2, 'Вт'], [3, 'Ср'], [4, 'Чт'], [5, 'Пт'], [6, 'Сб'], [0, 'Вс']];
+for (const [d, name] of WDAYS) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = name; b.dataset.d = d;
+  b.onclick = () => b.classList.toggle('on');
+  $('#wds').append(b);
+}
+const syncRep = () => {
+  const off = !$('#date').value;
+  $('#rc').disabled = $('#ri').disabled = off;
+  $('#wds').querySelectorAll('button').forEach(b => b.disabled = off);
+  $('#rhint').style.display = off ? '' : 'none';
+};
+$('#date').oninput = syncRep;
+function openDlg(t, date = '', matrix = null) {
+  if (taskBusy || (t && sidebarPending.has(String(t.id)))) return;
+  editing = t;
+  $('#desc').value = t ? t.description : '';
+  $('#taskMatrix').querySelectorAll('[data-unknown]').forEach(option => option.remove());
+  const rawMatrix = t ? t.eisenhower_matrix_category : matrix;
+  if (rawMatrix != null && ![1,2,3,4].includes(rawMatrix)) {
+    const option = new Option(`Неизвестное значение (${rawMatrix}) — сохранить`, String(rawMatrix)); option.dataset.unknown = '1'; $('#taskMatrix').append(option);
+  }
+  $('#taskMatrix').value = rawMatrix == null ? '' : String(rawMatrix);
+  refreshCategoryOptions();
+  $('#taskCategory').value = t ? (taskCategories[String(t.id)] || '') : '';
+  $('#taskCategory').placeholder = t && categoryOf(t).id !== 'без категории' ? `По тегу: ${categoryOf(t).name}, или своя категория` : 'Например, Работа или Спорт';
+  $('#date').value = t ? fromApi(t.date) : date;
+  const mins = t?.expected_duration_minutes;
+  $('#dh').value = mins == null ? '' : Math.floor(mins / 60);
+  $('#dm').value = mins == null ? '' : mins % 60;
+  $('#rc').value = t?.repeat_count ?? '';
+  $('#ri').value = t?.repeat_interval ?? '';
+  const ex = new Set(t?.excluded_weekdays || []);
+  $('#wds').querySelectorAll('button').forEach(b => b.classList.toggle('on', ex.has(+b.dataset.d)));
+  syncRep();
+  $('#del').style.display = t ? '' : 'none';
+  dlg.showModal(); $('#desc').focus();
+}
+$('#cancel').onclick = () => { if (!taskBusy) dlg.close(); };
+dlg.onclick = e => { if (e.target === dlg && !taskBusy) dlg.close(); };
+$('#del').onclick = async () => {
+  if (taskBusy) return;
+  const id = editing.id; setTaskBusy(true);
+  try { await api('DELETE', `/tasks/${id}`); storeCategory(id, ''); dlg.close(); await load(); } catch {} finally { setTaskBusy(false); }
+};
+$('#form').onsubmit = async e => {
+  e.preventDefault();
+  if (taskBusy) return;
+  const description = $('#desc').value.trim(), date = $('#date').value;
+  if (!description) return;
+  // оба поля пустые -> «не заполнено» (null); иначе часы*60 + минуты
+  const h = $('#dh').value, m = $('#dm').value;
+  const expected_duration_minutes = parseDur(h, m);
+  // повторение: нужно число раз >= 2, интервал по умолчанию 1 день; иначе оба поля null
+  // (без даты ничего не меняем: серия остаётся как была, но не показывается)
+  let repeat_count = null, repeat_interval = null;
+  if (!date) { repeat_count = editing?.repeat_count ?? null; repeat_interval = editing?.repeat_interval ?? null; }
+  else if (Number($('#rc').value) >= 2) {
+    repeat_count = Math.round(Number($('#rc').value));
+    repeat_interval = Math.max(1, Math.round(Number($('#ri').value || 1)));
+  }
+  // исключённые дни недели (без даты ничего не меняем)
+  const excluded_weekdays = date
+    ? [...$('#wds').querySelectorAll('button.on')].map(b => +b.dataset.d)
+    : (editing?.excluded_weekdays ?? []);
+  if (excluded_weekdays.length === 7) return toast('Нельзя пропустить все дни недели');
+  // выполненные вхождения: даты сдвигаются вместе с серией; выполненная обычная задача,
+  // ставшая серией, остаётся выполненной на первом вхождении
+  const newOcc = occurrences({ date: toApi(date), repeat_count, repeat_interval, excluded_weekdays });
+  let is_done = editing?.is_done ?? false, keys = editing ? doneKeysOf(editing) : new Set();
+  if (editing && date) {
+    const oldBase = fromApi(editing.date), wasSeries = occurrences(editing).length > 1;
+    if (wasSeries && oldBase !== date) { const delta = diffDays(oldBase, date); keys = new Set([...keys].map(k => addDays(k, delta))); }
+    if (!wasSeries && newOcc.length > 1 && editing.is_done) keys = new Set([date]);
+  }
+  if (newOcc.length > 1) is_done = newOcc.every(k => keys.has(k));
+  const category = cleanCategory($('#taskCategory').value);
+  const eisenhower_matrix_category = $('#taskMatrix').value === '' ? null : Number($('#taskMatrix').value);
+  setTaskBusy(true);
+  try {
+    if (editing) {
+      const id = editing.id;
+      await save({ id, description, is_done, expected_duration_minutes, repeat_count, repeat_interval, excluded_weekdays, eisenhower_matrix_category }, date, is_done, keys, () => { storeCategory(id, category); dlg.close(); });
+    } else {
+      const oldIds = new Set(tasks.map(task => String(task.id)));
+      await api('POST', '/tasks', { description, date: toApi(date), is_done: false, expected_duration_minutes, repeat_count, repeat_interval, excluded_weekdays, done_dates: [], eisenhower_matrix_category });
+      dlg.close();
+      try { await load(); } catch (error) { toast('Задача создана, но список не обновился. Обновите данные; категорию можно задать после загрузки.'); throw error; }
+      const created = tasks.filter(task => !oldIds.has(String(task.id)) && task.description === description && fromApi(task.date) === date);
+      if (created.length === 1) storeCategory(created[0].id, category);
+      else if (category) toast('Задача сохранена. Откройте её, чтобы задать категорию: новая задача не определилась однозначно.');
+    }
+    dlg.close(); render();
+  } catch {} finally { setTaskBusy(false); }
+};
+
+const setDlg = $('#set');
+$('#gear').onclick = () => {
+  $('#lh').value = limit == null ? '' : Math.floor(limit / 60);
+  $('#lm').value = limit == null ? '' : limit % 60;
+  setDlg.showModal(); $('#lh').focus();
+};
+const setLimit = v => {
+  limit = v > 0 ? v : null;
+  try { limit ? localStorage.setItem('planne.limit', limit) : localStorage.removeItem('planne.limit'); } catch {}
+  setDlg.close(); render();
+};
+$('#setForm').onsubmit = e => { e.preventDefault(); setLimit(parseDur($('#lh').value, $('#lm').value)); };
+$('#setReset').onclick = () => setLimit(null);
+$('#setCancel').onclick = () => setDlg.close();
+setDlg.onclick = e => { if (e.target === setDlg) setDlg.close(); };
+
+$('#addUndated').onclick = () => openDlg(null, '');
+$('#prev').onclick = () => changeMonth(dateAt(cur.getFullYear(), cur.getMonth() - 1));
+$('#next').onclick = () => changeMonth(dateAt(cur.getFullYear(), cur.getMonth() + 1));
+$('#today').onclick = () => changeMonth(new Date());
+$('#monthPicker').onchange = event => {
+  const match = event.target.value.match(/^(\d{4})-(\d{2})$/);
+  if (match && Number(match[2]) >= 1 && Number(match[2]) <= 12 && Number(match[1]) >= 1) changeMonth(dateAt(Number(match[1]), Number(match[2]) - 1));
+  else event.target.value = key(cur).slice(0, 7);
+};
+
+render(); load().catch(() => {});
+</script>
+</body>
+</html>

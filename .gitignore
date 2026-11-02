@@ -30,3 +30,12 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local task data, including temporary files and backups
+/data/
+
+# macOS metadata can contain local file and folder names
+.DS_Store
+
+# Local environment overrides
+.env.*
