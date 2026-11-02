@@ -19,11 +19,11 @@ func New(repository repository.Repository) *Service {
 
 func (s *Service) CreateTask(task *domain.Task) error {
 	if task.Description == "" {
-		return domain.ErrInvalidInput
+		return domain.ErrBadRequest
 	}
 
 	if (task.RepeatCount == nil && task.RepeatInterval != nil) || (task.RepeatCount != nil && task.RepeatInterval == nil) {
-		return domain.ErrInvalidInput
+		return domain.ErrBadRequest
 	}
 
 	err := s.repository.CreateTask(task)
@@ -47,11 +47,11 @@ func (s *Service) GetTasks() ([]*domain.Task, error) {
 
 func (s *Service) UpdateTask(task *domain.Task) error {
 	if task.Description == "" {
-		return domain.ErrInvalidInput
+		return domain.ErrBadRequest
 	}
 
 	if (task.RepeatCount == nil && task.RepeatInterval != nil) || (task.RepeatCount != nil && task.RepeatInterval == nil) {
-		return domain.ErrInvalidInput
+		return domain.ErrBadRequest
 	}
 
 	err := s.repository.UpdateTask(task)

@@ -47,6 +47,11 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if task == nil {
+		http.Error(w, domain.ErrBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+
 	err = s.service.CreateTask(task.ToDomain())
 	if err != nil {
 		http.Error(w, domain.ErrInternal.Error(), http.StatusInternalServerError)
@@ -91,6 +96,11 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("failed to decode req body: %v", err)
 		http.Error(w, domain.ErrInternal.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if task == nil {
+		http.Error(w, domain.ErrBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 
