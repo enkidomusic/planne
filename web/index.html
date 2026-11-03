@@ -147,6 +147,7 @@
   <div class="bar">
     <div class="month-heading"><div class="brand">PLANNE</div><h1 id="title"></h1></div>
     <div class="calendar-tools">
+      <label class="sw" title="Скрывать выполненные задачи в календаре"><input type="checkbox" id="hideDone"><i aria-hidden="true"></i>Скрыть выполненные</label>
       <button class="gear" id="gear" title="Настройки дневного лимита" aria-label="Настройки дневного лимита">⚙</button>
       <label class="sw" id="loadSwitch" title="Показывать ожидаемую нагрузку по дням"><input type="checkbox" id="load"><i></i>Нагрузка</label>
     </div>
@@ -284,6 +285,16 @@ $('#load').onchange = e => {
   render();
 };
 
+// скрытие выполненных задач в календаре; запоминаем выбор в браузере
+let hideDone = false;
+try { hideDone = localStorage.getItem('planne.hideDone') === '1'; } catch {}
+$('#hideDone').checked = hideDone;
+$('#hideDone').onchange = e => {
+  hideDone = e.target.checked;
+  try { localStorage.setItem('planne.hideDone', hideDone ? '1' : '0'); } catch {}
+  render();
+};
+
 // дневной лимит в минутах (null = не задан); хранится только в браузере
 let limit = null;
 try { const v = parseInt(localStorage.getItem('planne.limit'), 10); limit = v > 0 ? v : null; } catch {}
@@ -405,7 +416,8 @@ function render() {
   for (const t of tasks) {
     const occ = occurrences(t);
     if (!occ.length) { (byDate[''] ||= []).push({ t, idx: 0 }); continue; }
-    occ.forEach((k, i) => (byDate[k] ||= []).push({ t, idx: i }));
+    const doneKeys = doneKeysOf(t);
+    occ.forEach((k, i) => (byDate[k] ||= []).push({ t, idx: i, done: occ.length > 1 ? doneKeys.has(k) : !!t.is_done }));
   }
 
   const cells = [];
@@ -422,7 +434,7 @@ function render() {
     hd.className = 'hd';
     if (showLoad && dayTasks.length) hd.append(loadLabel(dayTasks.map(x => x.t)));
     hd.append(n);
-    el.append(hd, ...dayTasks.map(x => chip(x.t, x.idx)));
+    el.append(hd, ...dayTasks.filter(x => !hideDone || !x.done).map(x => chip(x.t, x.idx)));
     el.onclick = () => openDlg(null, k);
     dropTarget(el, k);
     cells.push(el);
